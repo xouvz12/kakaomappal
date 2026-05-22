@@ -18,26 +18,26 @@
             background-color: #f4f9fc;
         }
 
-        /* [CSS] 화면을 왼쪽(360px)과 오른쪽(나머지)으로 2분할 */
+        /* 화면 왼쪽/오른쪽 2분할 */
         #container {
             display: flex;
             width: 100%;
             height: 100%;
         }
 
-        /* 왼쪽 사이드바: 하늘하늘 여리여리한 파스텔 테마 */
+        /* 왼쪽 사이드바: 하늘하늘 여리여리한 컨셉 */
         #sidebar {
             width: 360px;
             height: 100%;
             display: flex;
             flex-direction: column;
             border-right: 1px solid #e1edf5;
+            background: #f7fbe4; /* 부드러운 파스텔톤 아이보리/옐로우 */
             background: linear-gradient(135deg, #f2f9ff 0%, #f7fbe4 100%);
             box-shadow: 4px 0 15px rgba(180, 210, 230, 0.2);
-            z-index: 10;
         }
 
-        /* 검색창 */
+        /* 검색창 디자인 */
         .search-box {
             padding: 20px 15px 10px 15px;
             display: flex;
@@ -52,6 +52,7 @@
             outline: none;
             background-color: rgba(255, 255, 255, 0.9);
             box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            transition: all 0.3s;
         }
         .search-box input:focus {
             border-color: #a4d4f7;
@@ -59,22 +60,23 @@
         }
         .search-box button {
             padding: 10px 18px;
-            background: #bce3ff;
+            background: #bce3ff; /* 파스텔 하늘색 */
             color: #4a657a;
             font-weight: bold;
             border: none;
             border-radius: 20px;
             cursor: pointer;
+            transition: background 0.3s;
             box-shadow: 0 2px 6px rgba(188, 227, 255, 0.4);
         }
         .search-box button:hover {
             background: #a4d4f7;
         }
 
-        /* 감성적인 탭 메뉴 */
+        /* 여리여리한 감성의 탭 메뉴 */
         .tab-container {
             display: flex;
-            padding: 5px 15px 10px 15px;
+            padding: 10px 15px;
             gap: 10px;
         }
         .tab {
@@ -97,7 +99,7 @@
             box-shadow: 0 4px 10px rgba(164, 212, 247, 0.25);
         }
 
-        /* 추천 장소 리스트 (검색창 밑에 쭈르륵 출력) */
+        /* 추천 장소 리스트 */
         #placesList {
             flex: 1;
             overflow-y: auto;
@@ -112,4 +114,260 @@
             border-radius: 15px;
             cursor: pointer;
             transition: all 0.2s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.01);
         }
+        #placesList li:hover {
+            background: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(164, 212, 247, 0.2);
+            border-color: #d1e8ff;
+        }
+        #placesList li strong {
+            color: #3e5260;
+            font-size: 15px;
+            display: block;
+            margin-bottom: 4px;
+        }
+        #placesList li small {
+            color: #7c8e99;
+            font-size: 12px;
+            display: block;
+            margin-bottom: 2px;
+        }
+        #placesList li .distance {
+            color: #ff9ebb; /* 여리여리한 핑크색으로 거리 표시 */
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        /* 오른쪽 지도 */
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+
+        /* 인포윈도우 커스텀 팝업 디자인 */
+        .info-popup {
+            padding: 10px;
+            font-size: 12px;
+            color: #4a5560;
+            line-height: 1.5;
+            min-width: 180px;
+        }
+        .info-title {
+            font-weight: bold;
+            font-size: 13px;
+            color: #2b7bc4;
+            margin-bottom: 5px;
+            border-bottom: 1px solid #e8f2fa;
+            padding-bottom: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <div id="sidebar">
+            <div class="search-box">
+                <input type="text" id="keyword" placeholder="혼자 가기 좋은 동네 입력 (예: 홍대)" value="이태원">
+                <button onclick="searchPlaces()">추천</button>
+            </div>
+            
+            <div class="tab-container">
+                <div id="tabRestaurant" class="tab active" onclick="switchTab('FD6')">🍽️ 혼밥 식당</div>
+                <div id="tabCafe" class="tab" onclick="switchTab('CE7')">☕ 혼카 카페</div>
+            </div>
+
+            <ul id="placesList"></ul>
+        </div>
+        
+        <div id="map"></div>
+    </div>
+
+    <script type="text/javascript" src="https://dapi.kakao.com/v2/maps/sdk.js?appkey=f4dabd260fc369aa65a6756672caef72&libraries=services&autoload=false"></script>
+    
+    <script>
+        // 전역 변수 선언
+        let map;
+        let ps;
+        let infowindow;
+        let currentLatitude = 37.566826;  // 기본 위도 (서울시청)
+        let currentLongitude = 126.9786567; // 기본 경도
+        let currentCategory = 'FD6';      // 기본 카테고리 코드 (식당)
+        let markersArray = [];            // 지도 위의 마커 보관용 배열
+
+        // 카카오 SDK 안전 로드
+        kakao.maps.load(function() {
+            const mapContainer = document.getElementById('map');
+            
+            let defaultOption = {
+                center: new kakao.maps.LatLng(currentLatitude, currentLongitude),
+                level: 5 // 확대 레벨 5
+            };
+
+            map = new kakao.maps.Map(mapContainer, defaultOption);
+            ps = new kakao.maps.services.Places();
+            infowindow = new kakao.maps.InfoWindow({ zIndex: 1 });
+
+            // 사용자 현재 위치 권한 요청
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    currentLatitude = position.coords.latitude;
+                    currentLongitude = position.coords.longitude;
+                    
+                    const currentLatLng = new kakao.maps.LatLng(currentLatitude, currentLongitude);
+                    map.setCenter(currentLatLng);
+                    
+                    // 내 위치 표시 (초록색 하트 이모지 마커 스타일)
+                    displayCustomLocationMarker(currentLatLng);
+                    
+                    // 현재 위치를 기반으로 첫 자동 추천 검색 실행
+                    searchPlaces();
+                }, function(error) {
+                    console.log("위치 권한 거부: 기본 위치로 작동합니다.");
+                    searchPlaces();
+                });
+            } else {
+                searchPlaces();
+            }
+        });
+
+        // 탭 전환 기능
+        function switchTab(categoryCode) {
+            currentCategory = categoryCode;
+            
+            // 탭 활성화 스타일 변경
+            if (categoryCode === 'FD6') {
+                document.getElementById('tabRestaurant').classList.add('active');
+                document.getElementById('tabCafe').classList.remove('active');
+            } else {
+                document.getElementById('tabCafe').classList.add('active');
+                document.getElementById('tabRestaurant').classList.remove('active');
+            }
+            
+            // 기존 마커를 전부 초기화하고 새로 검색
+            clearMarkers();
+            searchPlaces();
+        }
+
+        // 현재 위치 기점 장소 검색 함수
+        function searchPlaces() {
+            const keywordInput = document.getElementById('keyword').value;
+
+            if (!keywordInput.trim()) {
+                alert('동네나 키워드를 입력해주세요!');
+                return;
+            }
+
+            // 요청 조건 설정: 입력한 키워드와 함께 설정한 카테고리 코드로 검색 필터링
+            // 내 현재 위치(location)를 주입하고, 정렬 기준을 거리순(DISTANCE)으로 지정!
+            const searchOptions = {
+                category_group_code: currentCategory,
+                location: new kakao.maps.LatLng(currentLatitude, currentLongitude),
+                sort: kakao.maps.services.SortBy.DISTANCE 
+            };
+
+            ps.keywordSearch(keywordInput, placesSearchCallback, searchOptions); 
+        }
+
+        // 검색 완료 콜백 함수
+        function placesSearchCallback(data, status, pagination) {
+            if (status === kakao.maps.services.Status.OK) {
+                displayPlacesListAndMarkers(data);
+            } else if (status === kakao.maps.services.Status.ZERO_RESULT) {
+                document.getElementById('placesList').innerHTML = '<li style="text-align:center; color:#999;">주변에 만족하는 장소가 없어요 ㅠ_ㅠ</li>';
+                clearMarkers();
+            }
+        }
+
+        // 추천 장소 리스트 출력 및 다채로운 마커 표시 함수
+        function displayPlacesListAndMarkers(places) {
+            const listElement = document.getElementById('placesList');
+            const mapBounds = new kakao.maps.LatLngBounds();
+            
+            // 초기화
+            clearMarkers();
+            listElement.innerHTML = '';
+
+            for (let i = 0; i < places.length; i++) {
+                const placeLatLng = new kakao.maps.LatLng(places[i].y, places[i].x);
+                
+                // 조건: 카테고리에 따른 마커 색상 커스텀 (식당=빨강, 카페=하늘색 이미지 주소)
+                let markerImageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/markerStar.png'; // 기본 빨강 계열
+                if (currentCategory === 'CE7') {
+                    // 하늘색 마커 대체용 이미지 카카오 공식 핀셋
+                    markerImageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/2012/img/marker_p.png'; 
+                }
+
+                const imageSize = new kakao.maps.Size(24, 35);
+                const markerImage = new kakao.maps.MarkerImage(markerImageSrc, imageSize);
+
+                // 마커 객체 생성
+                const marker = new kakao.maps.Marker({
+                    map: map,
+                    position: placeLatLng,
+                    image: markerImage
+                });
+                markersArray.push(marker);
+
+                // 가상의 영업시간 데이터 매핑 (API에서 영업시간을 직접 제공하지 않으므로 감성 멘트로 대체)
+                const businessHours = "11:30 ~ 21:00 (Break time 없음)";
+
+                // 마커 클릭 팝업창 내용 구성 (장소이름, 전화번호, 영업시간)
+                const popupContent = `
+                    <div class="info-popup">
+                        <div class="info-title">${places[i].place_name}</div>
+                        <div><b>📞 번호:</b> ${places[i].phone || '등록된 번호 없음'}</div>
+                        <div><b>⏰ 영업:</b> ${businessHours}</div>
+                    </div>
+                `;
+
+                // 왼쪽 결과 리스트 아이템 동적 태그 추가
+                const itemElement = document.createElement('li');
+                // 미터 단위를 km로 가독성 있게 변환
+                const formattedDistance = places[i].distance ? `${(places[i].distance / 1000).toFixed(1)}km 떨어짐` : '';
+                
+                itemElement.innerHTML = `
+                    <strong>${places[i].place_name}</strong>
+                    <small>${places[i].road_address_name || places[i].address_name}</small>
+                    <span class="distance">📍 내 위치에서 ${formattedDistance}</span>
+                `;
+                
+                // 연동 이벤트 설정 (리스트나 마커를 클릭하면 팝업 오픈)
+                const triggerPopup = () => {
+                    map.setCenter(placeLatLng);
+                    infowindow.setContent(popupContent);
+                    infowindow.open(map, marker);
+                };
+
+                kakao.maps.event.addListener(marker, 'click', triggerPopup);
+                itemElement.onclick = triggerPopup;
+
+                listElement.appendChild(itemElement);
+                mapBounds.extend(placeLatLng);
+            }
+
+            // 검색 결과들에 맞춰서 화면 가시범위 자동 맞춤
+            map.setBounds(mapBounds);
+        }
+
+        // 내 현재 위치 전용 초록색 하트 이모지 마커 표시
+        function displayCustomLocationMarker(latLng) {
+            // 이모지를 텍스트형태 팝업 윈도우로 띄워 귀엽게 보이도록 트릭 구현
+            const heartInfoWindow = new kakao.maps.InfoWindow({
+                position: latLng,
+                content: '<div style="padding:5px; font-size:20px; border:none; background:transparent; text-align:center;">💚</div>'
+            });
+            heartInfoWindow.open(map);
+        }
+
+        // 기존 마커들을 청소해주는 함수
+        function clearMarkers() {
+            for (let i = 0; i < markersArray.length; i++) {
+                markersArray[i].setMap(null);
+            }
+            markersArray = [];
+        }
+    </script>
+</body>
+</html>
