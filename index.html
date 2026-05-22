@@ -18,7 +18,7 @@
             background-color: #f4f9fc;
         }
 
-        /* 화면 왼쪽과 오른쪽으로 2분할 */
+        /* [CSS] 화면을 왼쪽(360px)과 오른쪽(나머지)으로 2분할 */
         #container {
             display: flex;
             width: 100%;
@@ -37,7 +37,7 @@
             z-index: 10;
         }
 
-        /* 검색 영역 */
+        /* 검색창 */
         .search-box {
             padding: 20px 15px 10px 15px;
             display: flex;
@@ -71,7 +71,7 @@
             background: #a4d4f7;
         }
 
-        /* 감성적인 카테고리 탭 디자인 */
+        /* 감성적인 탭 메뉴 */
         .tab-container {
             display: flex;
             padding: 5px 15px 10px 15px;
@@ -97,7 +97,19 @@
             box-shadow: 0 4px 10px rgba(164, 212, 247, 0.25);
         }
 
-        /* 추천 장소 리스트 */
+        /* 추천 장소 리스트 (검색창 밑에 쭈르륵 출력) */
         #placesList {
             flex: 1;
-            overflow
+            overflow-y: auto;
+            list-style: none;
+            padding: 10px 15px;
+        }
+        #placesList li {
+            padding: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.7);
+            margin-bottom: 10px;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
